@@ -27,6 +27,7 @@ private val Context.appearanceDataStore: DataStore<Preferences> by preferencesDa
  */
 data class AppearanceSettings(
     val shadowEnabled: Boolean = DEFAULT_SHADOW_ENABLED,
+    val frostedGlass: Boolean = DEFAULT_FROSTED_GLASS,
     val strokeEnabled: Boolean = DEFAULT_STROKE_ENABLED,
     val strokeWidthDp: Int = DEFAULT_STROKE_WIDTH_DP,
     val strokeOpacity: Float = DEFAULT_STROKE_OPACITY,
@@ -51,6 +52,7 @@ data class AppearanceSettings(
 ) {
     companion object {
         const val DEFAULT_SHADOW_ENABLED = true
+        const val DEFAULT_FROSTED_GLASS = true
         const val DEFAULT_STROKE_ENABLED = false
         const val DEFAULT_STROKE_WIDTH_DP = 2
         const val MIN_STROKE_WIDTH_DP = 1
@@ -97,6 +99,7 @@ class AppearancePreferences(private val context: Context) : JsonSerializable {
     val settings: Flow<AppearanceSettings> = context.appearanceDataStore.data.map { prefs ->
         AppearanceSettings(
             shadowEnabled = prefs[SHADOW_ENABLED] ?: AppearanceSettings.DEFAULT_SHADOW_ENABLED,
+            frostedGlass = prefs[FROSTED_GLASS] ?: AppearanceSettings.DEFAULT_FROSTED_GLASS,
             strokeEnabled = prefs[STROKE_ENABLED] ?: AppearanceSettings.DEFAULT_STROKE_ENABLED,
             strokeWidthDp = (prefs[STROKE_WIDTH] ?: AppearanceSettings.DEFAULT_STROKE_WIDTH_DP)
                 .coerceIn(AppearanceSettings.MIN_STROKE_WIDTH_DP, AppearanceSettings.MAX_STROKE_WIDTH_DP),
@@ -138,6 +141,7 @@ class AppearancePreferences(private val context: Context) : JsonSerializable {
         val s = settings.first()
         return JSONObject().apply {
             put("shadowEnabled", s.shadowEnabled)
+            put("frostedGlass", s.frostedGlass)
             put("strokeEnabled", s.strokeEnabled)
             put("strokeWidthDp", s.strokeWidthDp)
             put("strokeOpacity", s.strokeOpacity.toDouble())
@@ -171,6 +175,7 @@ class AppearancePreferences(private val context: Context) : JsonSerializable {
         val obj = JSONObject(json)
         context.appearanceDataStore.edit {
             if (obj.has("shadowEnabled")) it[SHADOW_ENABLED] = obj.getBoolean("shadowEnabled")
+            if (obj.has("frostedGlass")) it[FROSTED_GLASS] = obj.getBoolean("frostedGlass")
             if (obj.has("strokeEnabled")) it[STROKE_ENABLED] = obj.getBoolean("strokeEnabled")
             if (obj.has("strokeWidthDp")) it[STROKE_WIDTH] = obj.getInt("strokeWidthDp")
                 .coerceIn(AppearanceSettings.MIN_STROKE_WIDTH_DP, AppearanceSettings.MAX_STROKE_WIDTH_DP)
@@ -231,6 +236,10 @@ class AppearancePreferences(private val context: Context) : JsonSerializable {
 
     suspend fun setShadowEnabled(enabled: Boolean) = context.appearanceDataStore.edit {
         it[SHADOW_ENABLED] = enabled
+    }
+
+    suspend fun setFrostedGlass(enabled: Boolean) = context.appearanceDataStore.edit {
+        it[FROSTED_GLASS] = enabled
     }
 
     suspend fun setStrokeEnabled(enabled: Boolean) = context.appearanceDataStore.edit {
@@ -338,6 +347,7 @@ class AppearancePreferences(private val context: Context) : JsonSerializable {
 
     private companion object {
         val SHADOW_ENABLED = booleanPreferencesKey("shadow_enabled")
+        val FROSTED_GLASS = booleanPreferencesKey("frosted_glass")
         val STROKE_ENABLED = booleanPreferencesKey("stroke_enabled")
         val STROKE_WIDTH = intPreferencesKey("stroke_width_dp")
         val STROKE_OPACITY = floatPreferencesKey("stroke_opacity")

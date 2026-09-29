@@ -769,6 +769,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         appearancePreferences.setShadowEnabled(enabled)
     }
 
+    fun setFrostedGlass(enabled: Boolean) = viewModelScope.launch {
+        appearancePreferences.setFrostedGlass(enabled)
+    }
+
     /** Saves the page transition style used by in-app navigation. */
     fun setPageTransitionStyle(style: PageTransitionStyle) = viewModelScope.launch {
         appearancePreferences.setPageTransitionStyle(style)

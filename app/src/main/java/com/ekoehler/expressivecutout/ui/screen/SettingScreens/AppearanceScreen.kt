@@ -132,6 +132,14 @@ internal fun AppearanceScreen(
             onCheckedChange = viewModel::setShadowEnabled,
         )
 
+        // Frosted glass toggle
+        SettingsToggleCard(
+            title = stringResource(R.string.appearance_frosted_title),
+            description = stringResource(R.string.appearance_frosted_desc),
+            checked = appearance.frostedGlass,
+            onCheckedChange = viewModel::setFrostedGlass,
+        )
+
         // Stroke toggle
         SettingsToggleCard(
             title = stringResource(R.string.appearance_stroke_title),

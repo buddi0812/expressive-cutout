@@ -271,6 +271,8 @@
     <string name="appearance_section_title">Appearance</string>
     <string name="appearance_shadow_title">Shadow</string>
     <string name="appearance_shadow_desc">Cast a soft shadow beneath the island.</string>
+    <string name="appearance_frosted_title">Frosted glass</string>
+    <string name="appearance_frosted_desc">Blur whatever sits behind the island as it expands. Needs window blurs on in Developer options.</string>
     <string name="appearance_page_transition_title">Page transition</string>
     <string name="appearance_page_transition_desc">Choose how tabs and settings pages change.</string>
     <string name="appearance_page_transition_fade">Fade</string>

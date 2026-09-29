@@ -226,6 +226,12 @@ private const val PROGRESS_BAR_TOP_GAP_DP = 6
  */
 private const val ACTIONS_ROW_SPACING_DP = 12
 
+/** Blur radius behind the frosted expanded island. */
+private const val FROST_BLUR_RADIUS_DP = 36
+
+/** How much of the fill stays opaque over the blur, so text keeps its contrast on busy wallpapers. */
+private const val FROST_TINT_ALPHA = 0.55f
+
 /** How far the island must be dragged upward before a swipe-up collapses it. */
 private const val SWIPE_UP_SHRINK_THRESHOLD_DP = 24
 
@@ -976,6 +982,9 @@ fun DynamicIsland(
                     progress = expandProgress,
                     appColor = shownEvent?.primaryColor(),
                     adaptiveColor = shownEvent?.primaryColor(),
+                    frost = expandProgress,
+                    frostRadiusDp = FROST_BLUR_RADIUS_DP,
+                    cornerRadiusPx = with(LocalDensity.current) { revealTopLeft.toPx() },
                 ) {
                     Crossfade(
                         targetState = IslandContentKey(
@@ -1466,13 +1475,20 @@ internal fun IslandSurface(
     progress: Float,
     appColor: Color? = null,
     adaptiveColor: Color? = null,
+    /** 0–1: how far toward frosted glass the island is, applied only when the user enables it. */
+    frost: Float = 0f,
+    frostRadiusDp: Int = 0,
+    cornerRadiusPx: Float = 0f,
     content: @Composable () -> Unit,
 ) {
+    val frostShown = if (appearance.frostedGlass) frost else 0f
+    val tint = 1f - frostShown * (1f - FROST_TINT_ALPHA)
     val normalBrush = appearance.backgroundNormal.resolveBrush(appColor, adaptiveColor)
     val expandedBrush = appearance.backgroundExpanded.resolveBrush(appColor, adaptiveColor)
     val normalBaseColor = appearance.backgroundNormal.resolveBaseColor(appColor, adaptiveColor)
     val expandedBaseColor = appearance.backgroundExpanded.resolveBaseColor(appColor, adaptiveColor)
     val currentBaseColor = lerp(normalBaseColor, expandedBaseColor, progress)
+        .let { it.copy(alpha = it.alpha * tint) }
 
     val repColor = lerp(
         appearance.backgroundNormal.representativeColor(appColor, adaptiveColor),
@@ -1491,7 +1507,9 @@ internal fun IslandSurface(
     }
 
     Surface(
-        modifier = modifier.background(currentBaseColor, shape),
+        modifier = modifier
+            .backgroundBlur(strength = frostShown, radiusDp = frostRadiusDp, cornerRadiusPx = cornerRadiusPx)
+            .background(currentBaseColor, shape),
         shape = shape,
         color = currentBaseColor,
         contentColor = contentColor,
@@ -1501,12 +1519,12 @@ internal fun IslandSurface(
     ) {
         CompositionLocalProvider(LocalContentColor provides contentColor) {
             Box(modifier = Modifier.fillMaxSize().background(currentBaseColor)) {
-                Box(modifier = Modifier.fillMaxSize().background(normalBrush))
+                Box(modifier = Modifier.fillMaxSize().graphicsLayer { alpha = tint }.background(normalBrush))
                 if (progress > 0f) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer { alpha = progress }
+                            .graphicsLayer { alpha = progress * tint }
                             .background(expandedBrush),
                     )
                 }
