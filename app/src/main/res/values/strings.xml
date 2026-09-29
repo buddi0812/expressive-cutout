@@ -484,6 +484,8 @@
     <string name="behaviour_action_buttons_desc">Show a notification\'s action buttons in the expanded cutout. Adds a little height so they clear the camera.</string>
     <string name="behaviour_shrink_swipe_up">Shrink on swipe up</string>
     <string name="behaviour_shrink_swipe_up_desc">Swipe up on the expanded cutout to shrink it back to the normal size.</string>
+    <string name="behaviour_pull_down_shade">Pull down for the shade</string>
+    <string name="behaviour_pull_down_shade_desc">Pull the cutout down to open your notifications. Pull again within a few seconds for the full Quick Settings.</string>
     <string name="behaviour_swipe_dismiss">Swipe to dismiss</string>
     <string name="behaviour_swipe_dismiss_desc">Swipe the cutout sideways to dismiss it. Notifications are cleared from the system too.</string>
     <string name="behaviour_swipe_direction">Swipe direction</string>

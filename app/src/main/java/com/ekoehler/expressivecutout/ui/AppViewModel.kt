@@ -688,6 +688,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         behaviourPreferences.setShrinkOnSwipeUp(enabled)
     }
 
+    fun setPullDownOpensShade(enabled: Boolean) = viewModelScope.launch {
+        behaviourPreferences.setPullDownOpensShade(enabled)
+    }
+
     fun setSwipeToDismiss(enabled: Boolean) = viewModelScope.launch {
         behaviourPreferences.setSwipeToDismiss(enabled)
     }

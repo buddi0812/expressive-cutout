@@ -13,7 +13,9 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.Region
 import android.net.Uri
+import android.accessibilityservice.AccessibilityService
 import android.os.Build
+import android.os.SystemClock
 import android.os.Bundle
 import android.telecom.TelecomManager
 import android.util.Log
@@ -80,6 +82,7 @@ import com.ekoehler.expressivecutout.data.PhoneTilePreferences
 import com.ekoehler.expressivecutout.data.PhoneTileSettings
 import com.ekoehler.expressivecutout.data.TimerTilePreferences
 import com.ekoehler.expressivecutout.data.TimerTileSettings
+import com.ekoehler.expressivecutout.service.CutoutAccessibilityService
 import com.ekoehler.expressivecutout.service.CutoutNotificationListenerService
 import com.ekoehler.expressivecutout.system.PermissionUsageMonitor
 import com.ekoehler.expressivecutout.ui.theme.ExpressiveCutoutTheme
@@ -688,6 +691,8 @@ class IslandOverlayController(private val context: Context) {
                         appearance = appearance,
                         showActions = behaviour.showActionButtons,
                         shrinkOnSwipeUp = behaviour.shrinkOnSwipeUp,
+                        pullDownOpensShade = behaviour.pullDownOpensShade,
+                        onPullDown = ::onPullDown,
                         swipeToDismiss = behaviour.swipeToDismiss,
                         swipeDismissDirection = behaviour.swipeDismissDirection,
                         swipeDismissTarget = behaviour.swipeDismissTarget,
@@ -2161,6 +2166,25 @@ class IslandOverlayController(private val context: Context) {
      * launches the chosen app; [NONE] (and, for now, the reserved [OPEN_CENTER]) do nothing beyond
      * the press animation the pill already plays.
      */
+    /** When the island last opened the notification shade, so a second pull can open Quick Settings. */
+    private var lastShadePullAt = 0L
+
+    /**
+     * Pulling the island down opens the notification shade; a second pull soon after opens the full
+     * Quick Settings panel, the same two-step reveal as dragging the status bar itself.
+     */
+    private fun onPullDown() {
+        val now = SystemClock.uptimeMillis()
+        val secondPull = now - lastShadePullAt < SHADE_SECOND_PULL_WINDOW_MS
+        val action = if (secondPull) {
+            AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS
+        } else {
+            AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS
+        }
+        lastShadePullAt = if (secondPull) 0L else now
+        CutoutAccessibilityService.performGlobal(action)
+    }
+
     private fun onEmptyClick() {
         val behaviour = behaviourState.value
         if (behaviour.showsWhenEmptyClickAction != EmptyClickAction.OPEN_APP) return
@@ -2624,6 +2648,9 @@ class IslandOverlayController(private val context: Context) {
         fun shouldCollapseOnOutsideTouch(isExpanded: Boolean, previewPinned: Boolean): Boolean =
             isExpanded && !previewPinned
         const val TAG = "IslandOverlay"
+
+        /** How soon a second pull on the island must follow the first to open Quick Settings. */
+        const val SHADE_SECOND_PULL_WINDOW_MS = 6_000L
         const val WINDOW_MARGIN_DP = 24
 
         /** Half-length of the rotation cross-fade: island fades out, snaps, then fades back in. */

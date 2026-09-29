@@ -93,6 +93,7 @@ data class BehaviourSettings(
     val showActionButtons: Boolean = DEFAULT_SHOW_ACTION_BUTTONS,
     val toastOnAction: Boolean = DEFAULT_TOAST_ON_ACTION,
     val shrinkOnSwipeUp: Boolean = DEFAULT_SHRINK_ON_SWIPE_UP,
+    val pullDownOpensShade: Boolean = DEFAULT_PULL_DOWN_OPENS_SHADE,
     val swipeToDismiss: Boolean = DEFAULT_SWIPE_TO_DISMISS,
     val swipeDismissDirection: SwipeDismissDirection = DEFAULT_SWIPE_DISMISS_DIRECTION,
     val swipeDismissTarget: SwipeDismissTarget = DEFAULT_SWIPE_DISMISS_TARGET,
@@ -136,6 +137,7 @@ data class BehaviourSettings(
         const val DEFAULT_SHOW_ACTION_BUTTONS = true
         const val DEFAULT_TOAST_ON_ACTION = true
         const val DEFAULT_SHRINK_ON_SWIPE_UP = true
+        const val DEFAULT_PULL_DOWN_OPENS_SHADE = true
         const val DEFAULT_SWIPE_TO_DISMISS = true
         val DEFAULT_SWIPE_DISMISS_DIRECTION = SwipeDismissDirection.BOTH
         val DEFAULT_SWIPE_DISMISS_TARGET = SwipeDismissTarget.BOTH
@@ -204,6 +206,7 @@ class BehaviourPreferences(private val context: Context) : JsonSerializable {
             showActionButtons = prefs[SHOW_ACTION_BUTTONS] ?: BehaviourSettings.DEFAULT_SHOW_ACTION_BUTTONS,
             toastOnAction = prefs[TOAST_ON_ACTION] ?: BehaviourSettings.DEFAULT_TOAST_ON_ACTION,
             shrinkOnSwipeUp = prefs[SHRINK_ON_SWIPE_UP] ?: BehaviourSettings.DEFAULT_SHRINK_ON_SWIPE_UP,
+            pullDownOpensShade = prefs[PULL_DOWN_OPENS_SHADE] ?: BehaviourSettings.DEFAULT_PULL_DOWN_OPENS_SHADE,
             swipeToDismiss = prefs[SWIPE_TO_DISMISS] ?: BehaviourSettings.DEFAULT_SWIPE_TO_DISMISS,
             swipeDismissDirection = prefs[SWIPE_DISMISS_DIRECTION]
                 ?.let { runCatching { SwipeDismissDirection.valueOf(it) }.getOrNull() }
@@ -263,6 +266,7 @@ class BehaviourPreferences(private val context: Context) : JsonSerializable {
             put("showActionButtons", s.showActionButtons)
             put("toastOnAction", s.toastOnAction)
             put("shrinkOnSwipeUp", s.shrinkOnSwipeUp)
+            put("pullDownOpensShade", s.pullDownOpensShade)
             put("swipeToDismiss", s.swipeToDismiss)
             put("swipeDismissDirection", s.swipeDismissDirection.name)
             put("swipeDismissTarget", s.swipeDismissTarget.name)
@@ -320,6 +324,7 @@ class BehaviourPreferences(private val context: Context) : JsonSerializable {
             if (obj.has("showActionButtons")) it[SHOW_ACTION_BUTTONS] = obj.getBoolean("showActionButtons")
             if (obj.has("toastOnAction")) it[TOAST_ON_ACTION] = obj.getBoolean("toastOnAction")
             if (obj.has("shrinkOnSwipeUp")) it[SHRINK_ON_SWIPE_UP] = obj.getBoolean("shrinkOnSwipeUp")
+            if (obj.has("pullDownOpensShade")) it[PULL_DOWN_OPENS_SHADE] = obj.getBoolean("pullDownOpensShade")
             if (obj.has("swipeToDismiss")) it[SWIPE_TO_DISMISS] = obj.getBoolean("swipeToDismiss")
             parseEnum<SwipeDismissDirection>(obj, "swipeDismissDirection")?.let { d -> it[SWIPE_DISMISS_DIRECTION] = d.name }
             parseEnum<SwipeDismissTarget>(obj, "swipeDismissTarget")?.let { t -> it[SWIPE_DISMISS_TARGET] = t.name }
@@ -475,6 +480,10 @@ class BehaviourPreferences(private val context: Context) : JsonSerializable {
         it[SHRINK_ON_SWIPE_UP] = enabled
     }
 
+    suspend fun setPullDownOpensShade(enabled: Boolean) = context.behaviourDataStore.edit {
+        it[PULL_DOWN_OPENS_SHADE] = enabled
+    }
+
     suspend fun setSwipeToDismiss(enabled: Boolean) = context.behaviourDataStore.edit {
         it[SWIPE_TO_DISMISS] = enabled
     }
@@ -597,6 +606,7 @@ class BehaviourPreferences(private val context: Context) : JsonSerializable {
         val SHOW_ACTION_BUTTONS = booleanPreferencesKey("show_action_buttons")
         val TOAST_ON_ACTION = booleanPreferencesKey("toast_on_action")
         val SHRINK_ON_SWIPE_UP = booleanPreferencesKey("shrink_on_swipe_up")
+        val PULL_DOWN_OPENS_SHADE = booleanPreferencesKey("pull_down_opens_shade")
         val SWIPE_TO_DISMISS = booleanPreferencesKey("swipe_to_dismiss")
         val SWIPE_DISMISS_DIRECTION = stringPreferencesKey("swipe_dismiss_direction")
         val SWIPE_DISMISS_TARGET = stringPreferencesKey("swipe_dismiss_target")

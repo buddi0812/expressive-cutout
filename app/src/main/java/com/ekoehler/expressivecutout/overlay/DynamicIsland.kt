@@ -90,7 +90,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -226,6 +228,12 @@ private const val ACTIONS_ROW_SPACING_DP = 12
 
 /** How far the island must be dragged upward before a swipe-up collapses it. */
 private const val SWIPE_UP_SHRINK_THRESHOLD_DP = 24
+
+/**
+ * How far the island must be pulled downward to open the notification shade. Kept below the
+ * distance at which SystemUI claims a top-edge drag for itself (about 17dp on this display).
+ */
+private const val PULL_DOWN_SHADE_THRESHOLD_DP = 10
 
 /** How far the island must be dragged sideways before releasing dismisses it. */
 private const val SWIPE_DISMISS_THRESHOLD_DP = 90
@@ -472,6 +480,8 @@ fun DynamicIsland(
     appearance: AppearanceSettings,
     showActions: Boolean,
     shrinkOnSwipeUp: Boolean,
+    /** Whether pulling the island down opens the notification shade, then Quick Settings. */
+    pullDownOpensShade: Boolean = false,
     swipeToDismiss: Boolean,
     swipeDismissDirection: SwipeDismissDirection,
     swipeDismissTarget: SwipeDismissTarget,
@@ -497,6 +507,7 @@ fun DynamicIsland(
     satellitePosition: SatellitePosition = SatellitePosition.RIGHT,
     onSatelliteClick: () -> Unit = {},
     onEmptyClick: () -> Unit = {},
+    onPullDown: () -> Unit = {},
     onCenterShortcut: (CenterShortcut) -> Unit = {},
     onExpandedChange: (Boolean) -> Unit,
     onActivate: () -> Unit,
@@ -862,6 +873,10 @@ fun DynamicIsland(
     }
 
     val haptic = LocalHapticFeedback.current
+    // Read live by the vertical-swipe detector, which must not restart mid-drag when these change
+    val isExpandedNow = rememberUpdatedState(isExpanded)
+    val replyingNow = rememberUpdatedState(replying)
+    val emptyPillNow = rememberUpdatedState(emptyPill)
 
     val hasEvent = event != null
     var lastHasEvent by remember { mutableStateOf(hasEvent) }
@@ -930,14 +945,18 @@ fun DynamicIsland(
                             onEmptyClick = onEmptyClick,
                             onActivate = onActivate,
                         )
-                        .islandSwipeUpToShrink(
-                            event = shownEvent,
+                        .islandVerticalSwipe(
                             forcedExpanded = forcedExpanded,
-                            isExpanded = isExpanded,
-                            replying = replying,
-                            enabled = shrinkOnSwipeUp,
-                            emptyPill = emptyPill,
+                            isExpanded = isExpandedNow,
+                            replying = replyingNow,
+                            shrinkEnabled = shrinkOnSwipeUp,
+                            pullDownEnabled = pullDownOpensShade,
+                            emptyPill = emptyPillNow,
                             tapExpanded = tapExpandedState,
+                            onPullDown = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onPullDown()
+                            },
                         )
                         .islandSwipeToDismiss(
                             event = shownEvent,
@@ -1256,34 +1275,51 @@ private fun Modifier.islandTapGestures(
 }
 
 /**
- * Swipe up on the expanded island to shrink it back to the normal cutout, once the drag passes
- * [SWIPE_UP_SHRINK_THRESHOLD_DP]. The detector is left uninstalled whenever it could not act anyway
- * (a forced state, the gesture switched off, or the resting empty pill, which has no expanded state
- * to shrink back from) so it never swallows a vertical drag meant for whatever is underneath.
+ * Vertical drags on the island. Swiping up on the expanded island shrinks it back to the normal
+ * cutout once the drag passes [SWIPE_UP_SHRINK_THRESHOLD_DP]; pulling down past
+ * [PULL_DOWN_SHADE_THRESHOLD_DP] hands off to [onPullDown] to open the notification shade, so the
+ * island doubles as the status-bar handle it covers.
+ *
+ * The island's state is read through [State] holders rather than used as restart keys: a live tile
+ * such as music re-emits its event every few hundred milliseconds, and restarting the detector on
+ * each one would cancel any drag in progress.
  */
-private fun Modifier.islandSwipeUpToShrink(
-    event: IslandEvent?,
+private fun Modifier.islandVerticalSwipe(
     forcedExpanded: Boolean?,
-    isExpanded: Boolean,
-    replying: Boolean,
-    enabled: Boolean,
-    emptyPill: Boolean,
+    isExpanded: State<Boolean>,
+    replying: State<Boolean>,
+    shrinkEnabled: Boolean,
+    pullDownEnabled: Boolean,
+    emptyPill: State<Boolean>,
     tapExpanded: MutableState<Boolean>,
-): Modifier = pointerInput(forcedExpanded, isExpanded, replying, enabled, emptyPill, event?.id) {
-    if (forcedExpanded != null || !enabled || emptyPill) return@pointerInput
+    onPullDown: () -> Unit,
+): Modifier = pointerInput(forcedExpanded, shrinkEnabled, pullDownEnabled) {
+    if (forcedExpanded != null || (!shrinkEnabled && !pullDownEnabled)) return@pointerInput
 
-    val threshold = SWIPE_UP_SHRINK_THRESHOLD_DP.dp.toPx()
+    val shrinkThreshold = SWIPE_UP_SHRINK_THRESHOLD_DP.dp.toPx()
+    val pullThreshold = PULL_DOWN_SHADE_THRESHOLD_DP.dp.toPx()
     var dragTotal = 0f
+    var pulled = false
     detectVerticalDragGestures(
-        onDragStart = { dragTotal = 0f },
+        onDragStart = {
+            dragTotal = 0f
+            pulled = false
+        },
         onDragEnd = {
-            if (isExpanded && !replying && dragTotal <= -threshold) {
+            val canShrink = shrinkEnabled && !emptyPill.value && isExpanded.value
+            if (!replying.value && canShrink && dragTotal <= -shrinkThreshold) {
                 tapExpanded.value = false
             }
         },
     ) { change, dragAmount ->
         dragTotal += dragAmount
         change.consume()
+        // SystemUI takes over a downward drag near the top edge within a few dozen pixels, so the
+        // pull has to fire mid-drag; waiting for the release would never see it
+        if (pullDownEnabled && !pulled && !replying.value && dragTotal >= pullThreshold) {
+            pulled = true
+            onPullDown()
+        }
     }
 }
 
