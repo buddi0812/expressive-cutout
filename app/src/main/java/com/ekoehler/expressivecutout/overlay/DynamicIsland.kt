@@ -1,5 +1,7 @@
 package com.ekoehler.expressivecutout.overlay
 
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.BlurEffect
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.os.Build
 import android.os.SystemClock
@@ -225,6 +227,18 @@ private const val PROGRESS_BAR_TOP_GAP_DP = 6
  * their header rows at different heights.
  */
 private const val ACTIONS_ROW_SPACING_DP = 12
+
+/** The knock's shake: a stiff, loosely damped spring kicked sideways so it rattles and settles. */
+private const val KNOCK_DAMPING = 0.18f
+private const val KNOCK_STIFFNESS = 2200f
+private const val KNOCK_VELOCITY_DP_S = 520f
+private const val KNOCK_INTERVAL_MS = 2_800L
+
+/** The deepest blur, in dp, that content passes through halfway between two sizes. */
+private const val MORPH_BLUR_DP = 7f
+
+/** How much the content shrinks at the midpoint of a morph, so it reads as re-forming. */
+private const val MORPH_SHRINK = 0.06f
 
 /** Blur radius behind the frosted expanded island. */
 private const val FROST_BLUR_RADIUS_DP = 36
@@ -757,6 +771,22 @@ fun DynamicIsland(
     // progress tick, a timer second) and gets a fresh id each time, which would re-pop constantly.
     // A notification's key survives its own updates, and a tile's label survives its lifetime.
     val iconPop = remember { Animatable(1f) }
+
+    // The knock: a ringing call shakes the island sideways with a haptic tap, and again every few
+    // seconds while it keeps ringing, the way a phone buzzing on a table draws the eye
+    val knockX = remember { Animatable(0f) }
+    val knockHaptic = LocalHapticFeedback.current
+    LaunchedEffect(callIncoming) {
+        while (callIncoming) {
+            knockHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            knockX.animateTo(
+                targetValue = 0f,
+                animationSpec = spring(dampingRatio = KNOCK_DAMPING, stiffness = KNOCK_STIFFNESS),
+                initialVelocity = KNOCK_VELOCITY_DP_S * density,
+            )
+            delay(KNOCK_INTERVAL_MS)
+        }
+    }
     val iconPopKey = event?.let { it.notificationKey ?: it.label }
     LaunchedEffect(iconPopKey) {
         if (iconPopKey != null) motion.popIn(iconPop)
@@ -927,7 +957,7 @@ fun DynamicIsland(
                             val widen = if (size.width > 0f) (size.width + extraPx) / size.width else 1f
                             scaleX = boopScale.value * widen
                             scaleY = boopScale.value
-                            translationX = dismissOffsetX.value
+                            translationX = dismissOffsetX.value + knockX.value
                             val travel = abs(dismissOffsetX.value) / size.width.coerceAtLeast(1f)
                             val revealAlpha = (reveal.value / 0.2f).coerceIn(0f, 1f)
                             alpha = (1f - travel).coerceIn(0.25f, 1f) * revealAlpha
@@ -993,7 +1023,8 @@ fun DynamicIsland(
                             tiny = isTiny,
                         ),
                         animationSpec = tween(scaled(150)),
-                        label = "islandContent"
+                        label = "islandContent",
+                        modifier = Modifier.contentMorph(expandProgress),
                     ) { content ->
                         if (content.emptyPill) {
                             if (content.expanded) {
@@ -1281,6 +1312,25 @@ private fun Modifier.islandTapGestures(
             }
         },
     )
+}
+
+/**
+ * Makes content melt and re-form while the island changes size: it blurs and shrinks slightly as
+ * [expandProgress] passes the midpoint and resolves sharp at either end, so the words never simply
+ * stretch. Needs Android 12's [android.graphics.RenderEffect]; older versions keep the plain
+ * crossfade.
+ */
+private fun Modifier.contentMorph(expandProgress: Float): Modifier = graphicsLayer {
+    val p = expandProgress.coerceIn(0f, 1f)
+    val mid = 1f - abs(2f * p - 1f)
+    if (mid < 0.02f) return@graphicsLayer
+    val shrink = 1f - MORPH_SHRINK * mid
+    scaleX = shrink
+    scaleY = shrink
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val r = MORPH_BLUR_DP.dp.toPx() * mid
+        renderEffect = BlurEffect(r, r, TileMode.Decal)
+    }
 }
 
 /**
